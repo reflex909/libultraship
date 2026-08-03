@@ -4,6 +4,9 @@
 #include "ship/utils/StringHelper.h"
 #include "ship/Context.h"
 #include "ship/controller/controldeck/ControlDeck.h"
+#ifdef __SWITCH__
+#include "ship/port/switch/SwitchController.h"
+#endif
 
 namespace Ship {
 SDLRumbleMapping::SDLRumbleMapping(uint8_t portIndex, uint8_t lowFrequencyIntensityPercentage,
@@ -15,19 +18,43 @@ SDLRumbleMapping::SDLRumbleMapping(uint8_t portIndex, uint8_t lowFrequencyIntens
 }
 
 void SDLRumbleMapping::StartRumble() {
+#ifdef __SWITCH__
+    for (const auto& [instanceId, gamepad] :
+         Context::GetInstance()->GetControlDeck()->GetConnectedPhysicalDeviceManager()->GetConnectedSDLGamepadsForPort(
+             mPortIndex)) {
+        int playerIndex = SwitchController::GetDeviceSlot(instanceId);
+        if (playerIndex >= 0 && playerIndex < 8) {
+            SwitchController::GetInstance().SendRumble(static_cast<uint8_t>(playerIndex),
+                                                        mLowFrequencyIntensityPercentage / 100.0f,
+                                                        mHighFrequencyIntensityPercentage / 100.0f);
+        }
+    }
+#else
     for (const auto& [instanceId, gamepad] :
          Context::GetInstance()->GetControlDeck()->GetConnectedPhysicalDeviceManager()->GetConnectedSDLGamepadsForPort(
              mPortIndex)) {
         SDL_GameControllerRumble(gamepad, mLowFrequencyIntensity, mHighFrequencyIntensity, 0);
     }
+#endif
 }
 
 void SDLRumbleMapping::StopRumble() {
+#ifdef __SWITCH__
+    for (const auto& [instanceId, gamepad] :
+         Context::GetInstance()->GetControlDeck()->GetConnectedPhysicalDeviceManager()->GetConnectedSDLGamepadsForPort(
+             mPortIndex)) {
+        int playerIndex = SwitchController::GetDeviceSlot(instanceId);
+        if (playerIndex >= 0 && playerIndex < 8) {
+            SwitchController::GetInstance().SendRumble(static_cast<uint8_t>(playerIndex), 0.0f, 0.0f);
+        }
+    }
+#else
     for (const auto& [instanceId, gamepad] :
          Context::GetInstance()->GetControlDeck()->GetConnectedPhysicalDeviceManager()->GetConnectedSDLGamepadsForPort(
              mPortIndex)) {
         SDL_GameControllerRumble(gamepad, 0, 0, 0);
     }
+#endif
 }
 
 void SDLRumbleMapping::SetLowFrequencyIntensity(uint8_t intensityPercentage) {
