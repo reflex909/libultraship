@@ -52,7 +52,7 @@ void SwitchController::Update() {
         }
     }
     if (changed) {
-        auto context = Context::GetInstance();
+        auto context = Context::GetRawInstance();
         if (context && context->GetControlDeck()) {
             context->GetControlDeck()->GetConnectedPhysicalDeviceManager()->HandlePhysicalDeviceConnect(0);
         }
