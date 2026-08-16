@@ -152,14 +152,7 @@ void Gui::Init() {
         static_cast<uint32_t>(RESOURCE_TYPE_GUI_TEXTURE), 0);
 
     ImGuiWMInit();
-#ifdef __SWITCH__
-    ImGui::GetStyle().ScaleAllSizes(2);
-#endif
-    mInterpreter = dynamic_pointer_cast<Fast::Fast3dWindow>(Context::GetRawInstance()->GetWindow())->GetInterpreterWeak();
     ImGuiBackendInit();
-#ifdef __SWITCH__
-    Switch::ApplyOverclock();
-#endif
 }
 
 void Gui::ImGuiWMInit() {
@@ -181,50 +174,7 @@ void Gui::ImGuiBackendShutdown() {
 }
 
 bool Gui::SupportsViewports() {
-#ifdef __linux__
-    const char* currentDesktop = std::getenv("XDG_CURRENT_DESKTOP");
-    if (currentDesktop && std::string(currentDesktop) == "gamescope") {
-        return false;
-    }
-#endif
-#ifdef __SWITCH__
     return false;
-#endif
-#if defined(__ANDROID__) || defined(__IOS__)
-    return false;
-#endif
-
-    switch (Context::GetRawInstance()->GetWindow()->GetWindowBackend()) {
-        case WindowBackend::FAST3D_DXGI_DX11:
-            return true;
-        case WindowBackend::FAST3D_SDL_OPENGL:
-        case WindowBackend::FAST3D_SDL_METAL:
-            return true;
-        default:
-            return false;
-    }
-}
-
-void Gui::HandleWindowEvents(WindowEvent event) {
-    switch (Context::GetRawInstance()->GetWindow()->GetWindowBackend()) {
-        case WindowBackend::FAST3D_SDL_OPENGL:
-        case WindowBackend::FAST3D_SDL_METAL:
-            ImGui_ImplSDL2_ProcessEvent(static_cast<const SDL_Event*>(event.Sdl.Event));
-#ifdef __SWITCH__
-            Ship::Switch::ImGuiProcessEvent(mImGuiIo->WantTextInput);
-#elif defined(__ANDROID__) || defined(__IOS__)
-            Mobile::ImGuiProcessEvent(mImGuiIo->WantTextInput);
-#endif
-            break;
-#ifdef ENABLE_DX11
-        case WindowBackend::FAST3D_DXGI_DX11:
-            ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(event.Win32.Handle), event.Win32.Msg, event.Win32.Param1,
-                                            event.Win32.Param2);
-            break;
-#endif
-        default:
-            break;
-    }
 }
 
 bool Gui::GamepadNavigationEnabled() {
