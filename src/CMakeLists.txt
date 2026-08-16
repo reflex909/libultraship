@@ -158,6 +158,12 @@ find_package(nlohmann_json REQUIRED)
 target_link_libraries(libultraship PUBLIC nlohmann_json::nlohmann_json)
 
 find_package(tinyxml2 REQUIRED)
+if(NOT TARGET tinyxml2::tinyxml2 AND TARGET tinyxml2_static)
+    # devkitPro's switch-tinyxml2 portlib exports a plain "tinyxml2_static" target
+    # instead of the namespaced "tinyxml2::tinyxml2" that upstream tinyxml2's own
+    # CMake export (and this project) expects. Bridge the two with an alias.
+    add_library(tinyxml2::tinyxml2 ALIAS tinyxml2_static)
+endif()
 target_link_libraries(libultraship PUBLIC tinyxml2::tinyxml2)
 
 find_package(spdlog REQUIRED)
