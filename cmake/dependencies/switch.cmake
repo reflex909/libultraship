@@ -13,8 +13,10 @@ if (NOT ${nlohmann_json_FOUND})
 endif()
 
 #=================== tinyxml2 ===================
-find_package(tinyxml2 QUIET)
-if (NOT ${tinyxml2_FOUND})
+if (NOT TARGET tinyxml2::tinyxml2 AND NOT TARGET tinyxml2)
+    find_package(tinyxml2 QUIET)
+endif()
+if (NOT TARGET tinyxml2::tinyxml2 AND NOT TARGET tinyxml2 AND NOT ${tinyxml2_FOUND})
     set(tinyxml2_BUILD_TESTING OFF)
     FetchContent_Declare(
         tinyxml2
