@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <stdio.h>
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__SWITCH__)
 #include <dlfcn.h>
 #endif
 
@@ -3984,6 +3984,12 @@ static bool IsValidResolvedAddress(uintptr_t addr) {
     HMODULE module = nullptr;
     return GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                               reinterpret_cast<LPCSTR>(addr), &module) != 0;
+#elif defined(__SWITCH__)
+    // Switch is a single statically-linked executable with no dynamic loading, so there's no
+    // equivalent module-membership check available. Conservatively treat ambiguous low addresses
+    // as NOT a validated resolved pointer, since in this decomp-based port they are overwhelmingly
+    // likely to be N64 segment offsets rather than real pointers.
+    return false;
 #else
     // For non-Windows platforms, check whether the address belongs to a loaded object.
     Dl_info info;
