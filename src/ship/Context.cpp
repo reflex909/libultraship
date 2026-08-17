@@ -322,7 +322,7 @@ bool Context::InitAudio(AudioSettings settings) {
 
     mAudio = std::make_shared<Audio>(settings);
 
-    ppf (GetAudio() == nullptr) {
+    if (GetAudio() == nullptr) {
         SPDLOG_ERROR("Failed to initialize audio");
         return false;
     }
