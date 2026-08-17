@@ -292,10 +292,10 @@ bool Context::InitControlDeck(std::shared_ptr<ControlDeck> controlDeck) {
         SPDLOG_WARN("Failed to add SDL game controller mappings from \"{}\" ({})", controllerDb, SDL_GetError());
     }
     SDL_SetHint(SDL_HINT_JOYSTICK_THREAD, "1");
+    #endif
     if (SDL_Init(SDL_INIT_GAMECONTROLLER) != 0) {
         SPDLOG_WARN("Failed to initialize SDL game controllers ({})", SDL_GetError());
     }
-#endif
 
     return true;
 }
@@ -322,7 +322,7 @@ bool Context::InitAudio(AudioSettings settings) {
 
     mAudio = std::make_shared<Audio>(settings);
 
-    if (GetAudio() == nullptr) {
+    ppf (GetAudio() == nullptr) {
         SPDLOG_ERROR("Failed to initialize audio");
         return false;
     }
