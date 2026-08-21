@@ -92,6 +92,8 @@ bool SwitchController::EnsureInitialized(uint8_t portIndex) {
     hidGetSixAxisSensorHandles(&controller.Sensors[0], 1, HidNpadIdType_Handheld, HidNpadStyleTag_NpadHandheld);
     hidGetSixAxisSensorHandles(&controller.Sensors[1], 1, npadId, HidNpadStyleTag_NpadFullKey);
     hidGetSixAxisSensorHandles(&controller.Sensors[2], 2, npadId, HidNpadStyleTag_NpadJoyDual);
+    hidGetSixAxisSensorHandles(&controller.Sensors[4], 1, npadId, HidNpadStyleTag_NpadJoyLeft);
+    hidGetSixAxisSensorHandles(&controller.Sensors[5], 1, npadId, HidNpadStyleTag_NpadJoyRight);
 
     for (auto& sensor : controller.Sensors) {
         hidStartSixAxisSensor(sensor);
@@ -105,6 +107,16 @@ bool SwitchController::EnsureInitialized(uint8_t portIndex) {
     return true;
 }
 
+static void ApplyRightJoyConOrientation(HidSixAxisSensorState& state) {
+    // Right Joy-Con IMU is mounted rotated relative to left. Verify signs empirically
+    // on hardware (log left vs right angular_velocity while rotating identically) before
+    // shipping -- these signs are a starting guess, not confirmed.
+    const float x = state.angular_velocity.x;
+    const float y = state.angular_velocity.y;
+    state.angular_velocity.x = -x;
+    state.angular_velocity.y = -y;
+}
+
 bool SwitchController::ReadSixAxisState(uint8_t portIndex, HidSixAxisSensorState& state) {
     if (!EnsureInitialized(portIndex)) {
         return false;
@@ -116,14 +128,52 @@ bool SwitchController::ReadSixAxisState(uint8_t portIndex, HidSixAxisSensorState
 
     if (styleSet & HidNpadStyleTag_NpadJoyDual) {
         const uint64_t attributes = padGetAttributes(&controller.State);
-        if (attributes & HidNpadAttribute_IsLeftConnected) {
+        const bool leftConnected = attributes & HidNpadAttribute_IsLeftConnected;
+        const bool rightConnected = attributes & HidNpadAttribute_IsRightConnected;
+
+        if (controller.Gyro == GyroSource::Both && leftConnected && rightConnected) {
+            HidSixAxisSensorState leftState = {};
+            HidSixAxisSensorState rightState = {};
+            hidGetSixAxisSensorStates(controller.Sensors[2], &leftState, 1);
+            hidGetSixAxisSensorStates(controller.Sensors[3], &rightState, 1);
+            SPDLOG_INFO("GYRO_CALIB raw L(x={:.3f} y={:.3f} z={:.3f}) raw R(x={:.3f} y={:.3f} z={:.3f})",
+                        leftState.angular_velocity.x, leftState.angular_velocity.y, leftState.angular_velocity.z,
+                        rightState.angular_velocity.x, rightState.angular_velocity.y, rightState.angular_velocity.z);
+            ApplyRightJoyConOrientation(rightState);
+
+            state = leftState;
+            state.angular_velocity.x = (leftState.angular_velocity.x + rightState.angular_velocity.x) * 0.5f;
+            state.angular_velocity.y = (leftState.angular_velocity.y + rightState.angular_velocity.y) * 0.5f;
+            state.angular_velocity.z = (leftState.angular_velocity.z + rightState.angular_velocity.z) * 0.5f;
+            return leftState.delta_time > 0 || rightState.delta_time > 0;
+        }
+
+        if (controller.Gyro == GyroSource::Right && rightConnected) {
+            hidGetSixAxisSensorStates(controller.Sensors[3], &state, 1);
+            ApplyRightJoyConOrientation(state);
+            return state.delta_time > 0;
+        }
+
+        if (leftConnected) {
             hidGetSixAxisSensorStates(controller.Sensors[2], &state, 1);
             return state.delta_time > 0;
         }
-        if (attributes & HidNpadAttribute_IsRightConnected) {
+        if (rightConnected) {
             hidGetSixAxisSensorStates(controller.Sensors[3], &state, 1);
+            ApplyRightJoyConOrientation(state);
             return state.delta_time > 0;
         }
+    }
+
+    if (styleSet & HidNpadStyleTag_NpadJoyLeft) {
+        hidGetSixAxisSensorStates(controller.Sensors[4], &state, 1);
+        return state.delta_time > 0;
+    }
+
+    if (styleSet & HidNpadStyleTag_NpadJoyRight) {
+        hidGetSixAxisSensorStates(controller.Sensors[5], &state, 1);
+        ApplyRightJoyConOrientation(state);
+        return state.delta_time > 0;
     }
 
     if (styleSet & HidNpadStyleTag_NpadHandheld) {
@@ -152,6 +202,13 @@ bool SwitchController::ReadGyro(uint8_t portIndex, float& pitch, float& yaw, flo
     yaw = sixAxisState.angular_velocity.y * 8.0f;
     roll = sixAxisState.angular_velocity.z * 8.0f;
     return true;
+}
+
+void SwitchController::SetGyroSource(uint8_t portIndex, GyroSource source) {
+    if (portIndex >= mControllers.size()) {
+        return;
+    }
+    mControllers[portIndex].Gyro = source;
 }
 
 void SwitchController::SendRumble(uint8_t portIndex, float lowFrequencyAmplitude, float highFrequencyAmplitude) {

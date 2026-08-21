@@ -9,18 +9,26 @@
 namespace Ship {
 
 // Small libnx-backed state cache for each logical port used by mapping classes.
+enum class GyroSource : uint8_t {
+    Left = 0,
+    Right = 1,
+    Both = 2,
+};
+
 struct NXControllerState {
     PadState State = {};
     HidVibrationDeviceHandle Handles[2][2] = {};
-    HidSixAxisSensorHandle Sensors[4] = {};
+    HidSixAxisSensorHandle Sensors[6] = {};
     uint64_t LastExternalRumbleStyle = 0;
     bool Initialized = false;
+    GyroSource Gyro = GyroSource::Left;
 };
 
 class SwitchController {
   public:
     static SwitchController& GetInstance();
     bool ReadGyro(uint8_t portIndex, float& pitch, float& yaw, float& roll);
+    void SetGyroSource(uint8_t portIndex, GyroSource source);
     void SendRumble(uint8_t portIndex, float lowFrequencyAmplitude, float highFrequencyAmplitude);
     bool IsNpadConnected(uint8_t portIndex) const;
     std::string GetControllerName(uint8_t portIndex);
