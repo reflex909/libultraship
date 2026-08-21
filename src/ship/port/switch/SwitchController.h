@@ -18,7 +18,7 @@ enum class GyroSource : uint8_t {
 struct NXControllerState {
     PadState State = {};
     HidVibrationDeviceHandle Handles[2][2] = {};
-    HidSixAxisSensorHandle Sensors[6] = {};
+    HidSixAxisSensorHandle Sensors[10] = {};  // 6-9: Lucia, Lagon, Lark, Lager (third-party controllers)
     uint64_t LastExternalRumbleStyle = 0;
     bool Initialized = false;
     GyroSource Gyro = GyroSource::Left;

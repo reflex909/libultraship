@@ -94,6 +94,12 @@ bool SwitchController::EnsureInitialized(uint8_t portIndex) {
     hidGetSixAxisSensorHandles(&controller.Sensors[2], 2, npadId, HidNpadStyleTag_NpadJoyDual);
     hidGetSixAxisSensorHandles(&controller.Sensors[4], 1, npadId, HidNpadStyleTag_NpadJoyLeft);
     hidGetSixAxisSensorHandles(&controller.Sensors[5], 1, npadId, HidNpadStyleTag_NpadJoyRight);
+    Result sixAxisLucia = hidGetSixAxisSensorHandles(&controller.Sensors[6], 1, npadId, HidNpadStyleTag_NpadLucia);
+    Result sixAxisLagon = hidGetSixAxisSensorHandles(&controller.Sensors[7], 1, npadId, HidNpadStyleTag_NpadLagon);
+    Result sixAxisLark = hidGetSixAxisSensorHandles(&controller.Sensors[8], 1, npadId, HidNpadStyleTag_NpadLark);
+    Result sixAxisLager = hidGetSixAxisSensorHandles(&controller.Sensors[9], 1, npadId, HidNpadStyleTag_NpadLager);
+    SPDLOG_INFO("SENSOR_CALIB thirdparty handles: lucia={:#x} lagon={:#x} lark={:#x} lager={:#x}",
+                sixAxisLucia, sixAxisLagon, sixAxisLark, sixAxisLager);
 
     for (auto& sensor : controller.Sensors) {
         hidStartSixAxisSensor(sensor);
@@ -176,6 +182,22 @@ bool SwitchController::ReadSixAxisState(uint8_t portIndex, HidSixAxisSensorState
         return state.delta_time > 0;
     }
 
+    if (styleSet & (HidNpadStyleTag_NpadLucia | HidNpadStyleTag_NpadLagon |
+                    HidNpadStyleTag_NpadLark | HidNpadStyleTag_NpadLager)) {
+        int sensorIdx = -1;
+        const char* tagName = "";
+        if (styleSet & HidNpadStyleTag_NpadLucia) { sensorIdx = 6; tagName = "Lucia"; }
+        else if (styleSet & HidNpadStyleTag_NpadLagon) { sensorIdx = 7; tagName = "Lagon"; }
+        else if (styleSet & HidNpadStyleTag_NpadLark) { sensorIdx = 8; tagName = "Lark"; }
+        else if (styleSet & HidNpadStyleTag_NpadLager) { sensorIdx = 9; tagName = "Lager"; }
+
+        hidGetSixAxisSensorStates(controller.Sensors[sensorIdx], &state, 1);
+        SPDLOG_INFO("THIRDPARTY_GYRO tag={} x={:.3f} y={:.3f} z={:.3f} delta_time={}",
+                    tagName, state.angular_velocity.x, state.angular_velocity.y,
+                    state.angular_velocity.z, state.delta_time);
+        return state.delta_time > 0;
+    }
+
     if (styleSet & HidNpadStyleTag_NpadHandheld) {
         hidGetSixAxisSensorStates(controller.Sensors[0], &state, 1);
         return state.delta_time > 0;
@@ -240,8 +262,10 @@ void SwitchController::SendRumble(uint8_t portIndex, float lowFrequencyAmplitude
     }
 
     if (externalStyle != 0 && controller.LastExternalRumbleStyle != externalStyle) {
-        hidInitializeVibrationDevices(controller.Handles[1], 2, GetNpadId(portIndex),
+        Result reinitResult = hidInitializeVibrationDevices(controller.Handles[1], 2, GetNpadId(portIndex),
                                       static_cast<HidNpadStyleTag>(externalStyle));
+        SPDLOG_INFO("RUMBLE_CALIB reinit externalStyle={:#x} reinitResult={:#x} deviceType={:#x}",
+                    externalStyle, reinitResult, hidGetNpadDeviceType(GetNpadId(portIndex)));
         controller.LastExternalRumbleStyle = externalStyle;
     }
 
