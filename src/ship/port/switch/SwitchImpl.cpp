@@ -28,7 +28,9 @@ static void on_applet_hook(AppletHookType hook, void* param);
 void Ship::Switch::Init(SwitchPhase phase) {
     switch (phase) {
         case PreInitPhase: {
-            padConfigureInput(8, HidNpadStyleSet_NpadStandard);
+            padConfigureInput(8, HidNpadStyleSet_NpadStandard | HidNpadStyleTag_NpadLucia |
+                                        HidNpadStyleTag_NpadLagon | HidNpadStyleTag_NpadLark |
+                                        HidNpadStyleTag_NpadLager);
 
             Result rc = socketInitializeDefault();
 // #ifdef DEBUG

@@ -82,6 +82,12 @@ bool SwitchController::EnsureInitialized(uint8_t portIndex) {
     const auto npadId = GetNpadId(portIndex);
     const uint64_t padMask = (CONTROLLER_MASK << npadId) | (CONTROLLER_MASK << HidNpadIdType_Handheld);
 
+    hidSetSupportedNpadStyleSet(HidNpadStyleTag_NpadFullKey | HidNpadStyleTag_NpadHandheld |
+                                 HidNpadStyleTag_NpadJoyDual | HidNpadStyleTag_NpadJoyLeft |
+                                 HidNpadStyleTag_NpadJoyRight | HidNpadStyleTag_NpadLucia |
+                                 HidNpadStyleTag_NpadLagon | HidNpadStyleTag_NpadLark |
+                                 HidNpadStyleTag_NpadLager);
+
     padInitializeWithMask(&controller.State, padMask);
     padUpdate(&controller.State);
 
@@ -131,6 +137,22 @@ bool SwitchController::ReadSixAxisState(uint8_t portIndex, HidSixAxisSensorState
     auto& controller = mControllers[portIndex];
     padUpdate(&controller.State);
     const uint64_t styleSet = padGetStyleSet(&controller.State);
+
+    static bool loggedTagValues = false;
+    if (!loggedTagValues) {
+        SPDLOG_INFO("STYLE_TAG_VALUES Lucia={:#x} Lagon={:#x} Lark={:#x} Lager={:#x} JoyDual={:#x} JoyLeft={:#x} JoyRight={:#x} Handheld={:#x} FullKey={:#x}",
+                    (uint64_t)HidNpadStyleTag_NpadLucia, (uint64_t)HidNpadStyleTag_NpadLagon,
+                    (uint64_t)HidNpadStyleTag_NpadLark, (uint64_t)HidNpadStyleTag_NpadLager,
+                    (uint64_t)HidNpadStyleTag_NpadJoyDual, (uint64_t)HidNpadStyleTag_NpadJoyLeft,
+                    (uint64_t)HidNpadStyleTag_NpadJoyRight, (uint64_t)HidNpadStyleTag_NpadHandheld,
+                    (uint64_t)HidNpadStyleTag_NpadFullKey);
+        loggedTagValues = true;
+    }
+    static uint64_t lastLoggedStyleSet = 0xFFFFFFFFFFFFFFFFull;
+    if (styleSet != lastLoggedStyleSet) {
+        SPDLOG_INFO("STYLE_SET_RAW portIndex={} styleSet={:#x}", portIndex, styleSet);
+        lastLoggedStyleSet = styleSet;
+    }
 
     if (styleSet & HidNpadStyleTag_NpadJoyDual) {
         const uint64_t attributes = padGetAttributes(&controller.State);
@@ -198,13 +220,16 @@ bool SwitchController::ReadSixAxisState(uint8_t portIndex, HidSixAxisSensorState
         return state.delta_time > 0;
     }
 
-    if (styleSet & HidNpadStyleTag_NpadHandheld) {
-        hidGetSixAxisSensorStates(controller.Sensors[0], &state, 1);
+    if (styleSet & HidNpadStyleTag_NpadFullKey) {
+        hidGetSixAxisSensorStates(controller.Sensors[1], &state, 1);
+        SPDLOG_INFO("FULLKEY_GYRO x={:.3f} y={:.3f} z={:.3f} delta_time={}",
+                    state.angular_velocity.x, state.angular_velocity.y,
+                    state.angular_velocity.z, state.delta_time);
         return state.delta_time > 0;
     }
 
-    if (styleSet & HidNpadStyleTag_NpadFullKey) {
-        hidGetSixAxisSensorStates(controller.Sensors[1], &state, 1);
+    if (styleSet & HidNpadStyleTag_NpadHandheld) {
+        hidGetSixAxisSensorStates(controller.Sensors[0], &state, 1);
         return state.delta_time > 0;
     }
 
