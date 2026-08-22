@@ -120,13 +120,17 @@ bool SwitchController::EnsureInitialized(uint8_t portIndex) {
 }
 
 static void ApplyRightJoyConOrientation(HidSixAxisSensorState& state) {
-    // Right Joy-Con IMU is mounted rotated relative to left. Verify signs empirically
-    // on hardware (log left vs right angular_velocity while rotating identically) before
-    // shipping -- these signs are a starting guess, not confirmed.
-    const float x = state.angular_velocity.x;
+    // RIGHT_GYRO_RAW logging showed left-right rotation registers on the raw
+    // z-axis (spiking ~0.6-0.76), not y (stayed under 0.2/noise) -- the right
+    // Joy-Con IMU is mounted rotated relative to the left, so this is an axis
+    // swap, not a sign flip. ReadGyro reads yaw from angular_velocity.y, so
+    // swap y and z here. x (pitch) confirmed correct as-is, left untouched.
+    // Sign of the swapped z->y value is a guess pending on-hardware direction
+    // check -- flip if left/right ends up backwards.
     const float y = state.angular_velocity.y;
-    state.angular_velocity.x = -x;
-    state.angular_velocity.y = -y;
+    const float z = state.angular_velocity.z;
+    state.angular_velocity.y = z;
+    state.angular_velocity.z = y;
 }
 
 bool SwitchController::ReadSixAxisState(uint8_t portIndex, HidSixAxisSensorState& state) {
@@ -178,6 +182,8 @@ bool SwitchController::ReadSixAxisState(uint8_t portIndex, HidSixAxisSensorState
 
         if (controller.Gyro == GyroSource::Right && rightConnected) {
             hidGetSixAxisSensorStates(controller.Sensors[3], &state, 1);
+            SPDLOG_INFO("RIGHT_GYRO_RAW x={:.3f} y={:.3f} z={:.3f}",
+                        state.angular_velocity.x, state.angular_velocity.y, state.angular_velocity.z);
             ApplyRightJoyConOrientation(state);
             return state.delta_time > 0;
         }
@@ -256,6 +262,23 @@ void SwitchController::SetGyroSource(uint8_t portIndex, GyroSource source) {
         return;
     }
     mControllers[portIndex].Gyro = source;
+}
+
+GyroSource SwitchController::GetGyroSourceForPort(uint8_t portIndex) {
+    if (portIndex >= mControllers.size()) {
+        return GyroSource::Left;
+    }
+    return mControllers[portIndex].Gyro;
+}
+
+bool SwitchController::IsDetachableJoyConPair(uint8_t portIndex) {
+    if (portIndex >= mControllers.size() || !EnsureInitialized(portIndex)) {
+        return false;
+    }
+    auto& controller = mControllers[portIndex];
+    padUpdate(&controller.State);
+    const uint64_t styleSet = padGetStyleSet(&controller.State);
+    return (styleSet & HidNpadStyleTag_NpadJoyDual) != 0;
 }
 
 void SwitchController::SendRumble(uint8_t portIndex, float lowFrequencyAmplitude, float highFrequencyAmplitude) {

@@ -29,6 +29,8 @@ class SwitchController {
     static SwitchController& GetInstance();
     bool ReadGyro(uint8_t portIndex, float& pitch, float& yaw, float& roll);
     void SetGyroSource(uint8_t portIndex, GyroSource source);
+    GyroSource GetGyroSourceForPort(uint8_t portIndex);
+    bool IsDetachableJoyConPair(uint8_t portIndex);
     void SendRumble(uint8_t portIndex, float lowFrequencyAmplitude, float highFrequencyAmplitude);
     bool IsNpadConnected(uint8_t portIndex) const;
     std::string GetControllerName(uint8_t portIndex);
